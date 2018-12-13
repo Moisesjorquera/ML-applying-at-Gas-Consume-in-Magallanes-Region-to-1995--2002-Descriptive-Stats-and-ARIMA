@@ -1,0 +1,585 @@
+#Análisis previo
+
+#Historia sobre el gas en Magallanes
+
+#A lo largo de la historia, el precio del gas en Magallanes ha sido objeto
+#de controversia debido a su costo más barato en relación con el resto del país.
+#Básicamente, esto ocurre porque en Magallanes hay una producción nacional,
+#por tanto el costo de transporte es menor. Al tener este comportamiento,
+#existe monopolio respecto al recurso y otras empresas que entran a competir
+#no tienen el subsidio que tiene Gasco por comprarle a Enap parte de su producción
+
+#Fuente:http://www.economiaynegocios.cl/noticias/noticias.asp?id=38424
+
+
+#Temperatura en la serie temporal del caso(1995-2002)
+
+#1995: La temperatura más alta se alcanza en los meses de enero y febrero
+#La temperatura más baja se encuentre entre los meses de junio y agosto
+
+#1996: Se repite la misma historia en función a los meses.
+
+#1997: Se repite la misma historia
+
+#La tendencia es la misma para los siguientes años hasta el 2002.
+
+
+#Temperatura actual(2013-2018)
+
+#Haciendo un análisis cuantitativo respecto a la temperatura media
+#que tiene esta región entre los años 2013 - 2018, claramente en los meses
+#de mayo a septiembre es donde la temperatura baja desde 8 a 2 grados en el
+#mes de agosto dentro del año 2013, teniendo un máximo de 13 grados en enero.
+#Para el año 2014, la tendencia se mantiene, salvo que las temperaturas más
+#altas están en el mes de febrero y en diciembre
+#En el año 2015, Se repite el mismo comportamiento hasta el año 2018.
+
+#Como primer gran profecía que se espera para el modelo es que durante,
+#los meses de otoño invierno el consumo en gas aumente debido a que las 
+#temperaturas son bajas, por tanto una correlación que DEBE calcularse
+#es esta.
+
+#Fuente:https://www.meteored.cl/tiempo-en_Punta+Arenas-America+Sur-Chile-Magallanes+y+de+la+Antartica+Chilena-SCCI-sactual-18570.html
+
+#Población de Magallanes
+
+#Obviamente el crecimiento de la población está en total relación
+#crecimiento económico de una nación, territorio, ciudad, etc.
+
+#Por lo mismo, la mejor opción para visualizar ésto empíricamente es a 
+#través de una investigación secundaria:
+
+#En el tiempo, la Región de Magallanes ha crecido a una tasa inferior respecto
+#al resto del país, entre los añós 1999-2000, han ocurrido cambios institucionales
+#(ley de excepción). Haciendo el paralelo con la población de Tierra del Fuego
+#Argentina, la población entre los años 1920 a 2002, ha crecido 40 veces,
+#en igual periodo la población en Magallanes se quintuplicó.
+
+#Entre 1960 y 1992, el PIB regional creció en un 1,6%, y se presume
+#que independiente de las cifras, la región posee mejores condiciones
+#de vida que la mayoría de los chilenos.
+
+#Los pricipales factores que hacen del Pib regional marginal respecto al
+#resto de Chile son: La obsolescencia del capital(sobre todo los recursos
+#físicos de la industria petrolera), la baja productividad en la mano de obra, etc.
+
+#Pero durante el periodo del 2000 hacia adelante se toman ápices para la discusión:
+
+#1. Consolidar una nueva matriz productiva regional a partir de :
+
+#ACTIVIDAD INDUSTRIAL
+#Elaboración de Metanol
+#Turismo de alto nivel en función de las maravillas naturales que posee
+#Desarrollo industria salmonera
+
+#2. Promulgación Ley Nº 19.606
+
+#La cual otorga beneficios a partir de la Ley Nº 18.391
+
+#El Inacer entre los años 1996-2017 tiene un comportamiento creciente
+#derivado de la incipiente industria del etanol, llegando a valores de 143,6
+#en el año 2000
+
+#Entre los años 1992 al año 2002, la población de la región pasó de
+#143.198 a 150.826
+
+#Por lo tanto un factor es este respecto al aumento 
+#en el consumo y del turismo(esperar información)
+
+#¿Por qué se eligió R?
+
+#Básicamente se eligió R, porque para Machine Learning tiene implementados
+#una gran cantidad de algoritmos que aportan a la creación de gráficos
+#y por otro lado que R nació del ámbito académico, por tanto tiene
+#diferentes líneas desde donde se dió su creación. Al ser un problema
+#de Carácter estadístico es donde se debe tener en cuenta el manejo de
+#df y vectores, lo cual facilita el manejo de bases de datos, por lo mismo
+#se eligió para optimizar la extracción, transformación y carga de la información(Proceso ETL).
+
+#Hablando sobre el script
+
+#Primer procedimiento: Importar las librerías necesarias para el análisis
+
+install.packages("tidyverse")
+install.packages("corrplot")
+install.packages("ggpubr")
+install.packages("caret")
+
+library(caret)
+library(tidyverse)
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(corrplot)
+library(ggpubr)
+library(xtable)
+library(forecast)
+library(tseries)
+
+# 1.Importar y limpiar la data ---------------------------------------------------
+
+#1.1 importar base de datos del ejercicio
+
+mydata <- read.table("/Users/franklin/Desktop/Consumo de Gas en Magallanes 1995 2002.csv", header=TRUE, sep=";")
+
+#Donde el archivo csv  es la base de datos con los datos sin limpiar
+
+#Ver la data sin procesar
+
+mydata 
+
+#Tomamos en cuenta los tipos de datos usando el comando glimpse(), para ver su raíz(character, factor,boolean, int, y otros)
+
+glimpse(mydata)
+
+#Vemos los nombres de las variables
+
+names(mydata)
+
+#1.2 Obtener un resumen de los días de la semana y considerarlos como factor(dependiendo del día es el número que les corresponde)
+#Resumen
+
+str(mydata$DiaSemana)
+
+
+#1.3 Renombrando los datos dentro de la columna día de semana como factor
+
+# Visualizamos los datos ya depurados
+
+levels(mydata$DiaSemana) 
+
+#Cambiamos los datos que tienen detalles(Tìldes) para que el software no tenga problemas en reconocerlos al momento de haberlos importado 
+#para la sintaxis limpia al momento de hacer análisis
+levels(mydata$DiaSemana)[levels(mydata$DiaSemana)=="Mi\xe9rcoles"] <- "Miercoles" 
+levels(mydata$DiaSemana)[levels(mydata$DiaSemana)=="S\xe1bado"] <- "Sabado"
+
+#El know-how : http://www.cookbook-r.com/Manipulating_data/Renaming_levels_of_a_factor/
+
+#La Variable feriado no conviene tenerla como entero, debido a problemas
+#en la interpretación en sus medidas de posición. Por lo tanto, debemos
+#re-codificarla para que sus niveles sean Si(es feriado), No(No es feriado)
+#y se convierte a factor también en el caso de los Días semana que se convirtió en pasos anteriores(variable cualitativa
+#nominal que luego se transforma en variable cualitativa ordinal)
+
+mydata$Feriado <- if_else(mydata$Feriado == 1, "Si","No")
+
+#Transformación cumpliendo si la fila relacionada a dicha columna tiene
+#valor 1, cambia a Si, de caso contrario, no
+
+mydata$Feriado <- as.factor(mydata$Feriado)
+
+
+# 2. Parte de visualización y entendimiento de la data ---------------------------------------------------------
+
+#Llamamos a la dataframe para su visualización completa
+
+mydata
+
+#Número de obseraciones del set de datos
+
+nrow(mydata)
+
+#Sólo los encabezados
+
+head(mydata)
+
+
+#Detección si hay una fila incompleta
+any(!complete.cases(mydata))
+
+
+#Puede ocurrir que exista una contradicción con la función gilmpse().
+#Porque pueden haber datos NA, el valor por ejemplo de una celda
+#donde haya un carácter "", lo interpreta como un character y no como
+#un valor ausente NA.
+
+#En este caso no existen valores con ""
+
+#Distribución de variable Respuesta
+
+ggplot(data = mydata, aes(x = Consumo , y = ..count.., fill = Consumo)) +
+  geom_bar() +
+  scale_fill_manual(values = c("gray50", "orangered2")) +
+  labs(title = "Análisis Consumo de Gas Región de Magallanes Serie Temporal 1995 - 2002") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+#Tabla de frecuencias
+
+table(mydata$Consumo)
+prop.table(table(mydata$Consumo)) %>% round(digits = 2)
+
+#Distribución para variable cualitativa feriado
+
+ggplot(data = mydata, aes(x = Feriado , y = ..count.., fill = Feriado)) +
+  geom_bar() +
+  scale_fill_manual(values = c("gray50", "orangered2")) +
+  labs(title = "Análisis Descriptivo Día Feriado") 
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+#Tabla de frecuencias
+
+table(mydata$Feriado)
+prop.table(table(mydata$Feriado)) %>% round(digits = 2)
+
+
+#Distribución de variables continuas(Revisar con calma)
+
+#El objetivo de estudio es predecir la cantidad de gas consumido
+#tanto diario, mensual, semanal, el análisis de cada variable
+#se hace en relación a la variable dependiente Consumo
+
+#A partir de dicho análisis se pueden extraer algunas ideas sobre
+#cuales variables están más ligadas al consumo(mes, año, día, feriado, etc.)
+
+
+p1 <- ggplot(mydata, aes(x = Consumo , fill = Feriado)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = c("gray50", "orangered2")) +
+  geom_rug(aes(color = Feriado), alpha = 0.5) +
+  scale_color_manual(values = c("gray50", "orangered2")) +
+  theme_bw()
+
+p2 <- ggplot(mydata, aes(x = Feriado, y = Consumo, color = Feriado)) +
+  geom_jitter(alpha = 0.3, width = 0.15) +
+  scale_color_manual(values = c("gray50", "orangered2")) +
+  theme_bw()
+
+final_plot <- ggarrange(p1, p2, legend = "top")
+final_plot <- annotate_figure(final_plot, top = text_grob("Consumo", size = 15))
+final_plot
+
+
+#Al analizar la variable Feriado en relación a sus criterios y
+#A su función de densidad, claramente ambos criterios tienen un comportamiento
+#similar con la excepción que los días que son feriados tienden a agrupar
+#su consumo sobre la media, esto se interpreta que en dichos días
+#el consumo de gas no varía, y que existen otros factores que pueden
+#propiciar un aumento o una disminución en el consumo, por ejemplo,
+#el factor principal que es la temperatura, y el cual fue mencionado
+#en el inicio de este script, como factor fundamental para el consumo de
+#gas en la región de magallanes.
+
+
+#Gráfico simple(Relaciones gráficas entre variables)
+
+plot(mydata) #grafica todos casos posibles en relación entre las variables
+
+with(mydata,plot(Consumo,Año)) # falta grÃ¡ficar la suma de los aÃ±os
+
+with(mydata,plot(Consumo,Mes))
+
+
+#3. Análisis Puro
+
+#3.1 Estadística Descriptiva
+
+#Ver la estadística descriptiva de cada variable en relación al consumo
+
+mydata %>% filter(!is.na(Consumo)) %>% group_by(Dia) %>%
+  summarise(media = mean(Consumo),
+            mediana = median(Consumo),
+            des.est = sd(Consumo),
+            min = min(Consumo),
+            max = max(Consumo))
+
+mydata %>% filter(!is.na(Consumo)) %>% group_by(Mes) %>%
+  summarise(media = mean(Consumo),
+            mediana = median(Consumo),
+            des.est = sd(Consumo),
+            min = min(Consumo),
+            max = max(Consumo))
+
+mydata %>% filter(!is.na(Consumo)) %>% group_by(Año) %>%
+  summarise(media = mean(Consumo),
+            mediana = median(Consumo),
+            des.est = sd(Consumo),
+            min = min(Consumo),
+            max = max(Consumo))
+
+mydata %>% filter(!is.na(Consumo)) %>% group_by(DiaSemana) %>%
+  summarise(media = mean(Consumo),
+            mediana = median(Consumo),
+            des.est = sd(Consumo),
+            min = min(Consumo),
+            max = max(Consumo))
+
+mydata %>% filter(!is.na(Consumo)) %>% group_by(Feriado) %>%
+  summarise(media = mean(Consumo),
+            mediana = median(Consumo),
+            des.est = sd(Consumo),
+            min = min(Consumo),
+            max = max(Consumo))
+
+#Tener en cuenta que: Media < Mediana, asimetría hacia la izquierda(mayor concentración
+#de los datos en esa dirección)
+
+#Media > Mediana, asimetría hacia la derecha
+
+#Obviamente son medidas de posición y hacen ver de manera primaria, la distribución
+#de los datos.
+
+#Es interesante analizar descriptivamente los datos, y teniendo en cuenta
+#La ventaja que tenemos al tener toda la data sin valores NULL,
+#Se obtienen las siguientes observaciones
+#1. A nivel mes, los meses de mayo a septiembre, se ve un mayor consumo
+#obviamente esto ocurre por las bajas temperaturas.
+
+#2. Hablando de años, el nivel de consumo en promedio por año
+#Tiende al aumento sostenido, esto se interpreta como el fiel reflejo
+#de la Ley de fomento económico para esta región señalada
+#en el análisis previo de este caso.
+
+#3. Hablando de día de semana, no hay una tendencia clara a alguna concentración
+#a nivel de grupos, pero si se ve que en el día martes es el día que en promedio
+#durante esta serie temporal hay mayor consumo en promedio.
+
+
+#4. Día feriado
+
+#Que los días donde no es feriado, el consumo tiende a aumentar.
+
+
+
+#reestructuración de los datos
+
+mydata_long <- mydata %>% gather(key = "variable", value = "valor", -Consumo)
+head(mydata_long)
+
+
+#3.2 Estadística inferencial y pronóstico
+
+#definir una variable llamada modelo y probar la relación que exista entre el consumo y los días, todo esto
+#se puede hacer con todas las variables para ir viendo relaciones lineales significativas al momento de construir
+#el modelo de manera eficiente donde las variables independientes expliquen el modelo de manera correcta(p valores , r2, entre otros)
+
+
+#Hay dos formas para determinar la correlación
+
+
+#1a Forma. #coeficiente de correlación de pearson
+
+cor.test <- cor(mydata,method="pearson") #sólo si el modelo tuviera datos numéricos
+
+#para efectos del análisis
+
+#correlación consumo - año
+
+cor.test <- cor(mydata$Consumo,mydata$Año,method="pearson")
+
+
+#correlación consumo - mes
+
+
+cor.test(x=mydata$Consumo, y=mydata$Mes,method="pearson")
+
+
+#Análisis Tendencia bajo estas temporalidades
+
+#1. Gráfico Dia - Comsumo
+
+myplot <- ggplot(data = mydata, aes(x = (Dia), y = log(Consumo))) +
+  geom_point(color = "gray30") +
+  geom_smooth(stat = 'smooth', color = 'Red', method = 'gam') +
+  theme_bw()
+print(myplot)
+dev.off
+
+
+#2. Gráfico Mes - Consumo
+
+myplot <- ggplot(data = mydata, aes(x = (Mes), y = log(Consumo))) +
+  geom_point(color = "gray30") +
+  geom_smooth(stat = 'smooth', color = 'Red', method = 'gam') +
+  theme_bw()
+print(myplot)
+dev.off
+
+
+
+#3. Gráfico Año - Consumo
+
+myplot <- ggplot(data = mydata, aes(x = (Año), y = log(Año))) +
+  geom_point(color = "gray30") +
+  geom_smooth(stat = 'smooth', color = 'Red', method = 'gam') +
+  theme_bw()
+print(myplot)
+dev.off
+
+
+#correlación consumo - día(variable determinada por el factor, en función de su
+#orden)
+
+cor.test <- cor(mydata$Consumo,mydata$DiaSemana,method="pearson")
+
+
+
+#Se hace de manera individual o de manera grupal pero sin considerar todos los datos, debido a que
+#el año es independiente del día y del mes, lo que si, los días feriados hacen la diferencia
+#descriptivamente ya se ve que en dichos días el consumo por gas es menor que en los días que no es feriado
+
+
+#dependiendo del vector de correlaciones elegido se le hará este análisis
+
+
+#Parte ARIMA(Modelado teniendo en cuenta el tiempo(estacionalidad))
+
+#Para tener los datos de manera más ordenada para los análisis que se quieren realizar
+#es necesario cambiar la fecha concatenada y tomando la primera
+#columna como referencia para hacerla más agradable a la vista del
+#evaluador. Por eso los pasos a seguir son:
+
+#Crear una nueva DF, ordenando el índice de las columnas en función de lo que queramos
+#mostrar en la dataframe a trabajar usando la librería dplyr
+
+mydata1 = unite(mydata, FechaCompleta,c(2:4),  sep = "/", remove = TRUE)
+
+#Donde FechaCompleta es la nueva variable que concatena las filas
+#2 a 4 y las separa por /, removiendo las columnas que son tomadas
+#para dicha concatenación.
+
+
+#Verificamos el cambio
+
+head(mydata1)
+
+
+#Ordenar datos con el orden señalado más arriba, creando una nueva df
+
+mydata2 = mydata1[,c(2,1,3,4)]
+
+#Verificamos si el orden está bien
+names(mydata2)
+
+#Vemos la base de datos con el arreglo
+
+mydata2
+
+#Le damos el formato fecha a los datos concatenados en los pasos anteriores
+
+mydata2$FechaCompleta = as.Date(mydata2$FechaCompleta,'%d/%m/%Y')
+
+#Graficamos en función a los datos desde el consumo y usando el package ggplot
+
+ggplot(mydata2,aes(FechaCompleta,Consumo))+ geom_line() + scale_x_date('Periodo')  + ylab("Consumo en Metros Cúbicos") +
+  xlab("")
+
+
+#Si existiesen datos atípicos
+
+count_ts = ts(datos[, c('Consumo')])
+
+mydata2$clean_Consumo = tsclean(count_ts)
+
+#Calculo media movil para suavizar la serie en algo más estable, por lo mismo,
+#predecible
+
+mydata2$Consumo_ma = ma(mydata$clean_Consumo,order = 7) 
+mydata2$Consumo_ma35 = ma(mydata$clean_Consumo,order = 35)
+mydata2$Consumo_ma90 = ma(mydata$clean_Consumo,order = 90)
+
+#Graficamos la media movil
+
+ggplot() +
+  geom_line(data = mydata2, aes(x = FechaCompleta , y = clean_apartamento, colour = "Counts")) +
+  geom_line(data = mydata2, aes(x = FechaCompleta, y = Consumo_ma,   colour = "Daily Moving Average"))  +
+  geom_line(data = mydata2, aes(x = FechaCompleta, y = Consumo_ma35, colour = "Weekly Moving Average"))  +
+  geom_line(data = mydata2, aes(x = FechaCompleta, y = apartamento_ma90, colour = "Monthly Moving Average"))
+  ylab('Consumo Count')
+  
+
+#Componente estacional
+
+count_ma = ts(na.omit(mydata2$Consumo_ma), frequency=30)
+decomp = stl(count_ma, s.window="periodic")
+deseasonal_Consumo <- seasadj(decomp)
+plot(decomp)
+
+#Se verifica si realmente la serie tiene o no estacionalidad, si no tiene 
+#una tendencia clara es porque tiene valores extremos o no tiene
+#normalidad la serie, si esto ocurriese habría que hacerle un ajuste
+#a partir del test de Dickey-Fuller
+
+adf.test(count_ma,alternative="stationary")
+
+#Claramente la hipótesis nula señala que la serie es no estacionaria,
+#por lo mismo el contraste(hipótesis alternativa) es que sea estacionaria
+
+#Si el p valor(nivel de significación) derivada de dicha serie temporal > 0.05
+#se concluye que en este caso, la serie no es estacionaria
+
+#Autocorrelación
+
+Acf(count_ma,main='')
+Pacf(count_ma, main='')
+
+#Diferencia para estacionalizar la serie de datos
+
+count_d1 = diff(deseasonal_apartamento, differences = 1)
+plot(count_d1)
+
+#Comprobamos nuevamente si existiese estacionalidad
+
+adf.test(count_d1, alternative = "Estacionalidad")
+
+#Si el p valor(nivel de significación) derivada de dicha serie temporal > 0.05
+#se concluye que la serie es estacionaria, porque se rechaza la h.n que señala
+#la no estacionalidad en los datos.
+
+#Los picos en los rezagos derivados de la diferenciación ayudan a determinar
+#p o q en el modelo:
+
+Acf(count_d1, main='ACF para series diferenciadas')
+Pacf(count_d1, main='PACF para series diferenciadas')
+
+
+#Ajuste del modelo
+
+auto.arima(deseasonal_Consumo,seasonal=FALSE)
+
+#Los resultados de la primera fila son los estimadores para el modelo
+#ajustado
+
+#Cuando no existen errores en la especificación del modelo u otros derivados
+#Ejemplo de la mala sintaxis, orden, entre otros, se espera no obtener autocorrelaciones
+#significativas. Para ejecutar de manera correcta el pronóstico, se debe tener en cuenta
+#la gráfica proveniente de ACF Y PACF para los residuos del modelo.
+
+modeloarima <- auto.arima(deseasonal_Consumo,seasonal=FALSE)
+modeloarima
+
+#Para graficar los residuos del modelo
+
+tsdisplay(residuals(modeloarima),lag.max=10,main='(3,1,1) Residuos del modelo')
+
+
+#Puede haber una tendencia en alguno de los retardos que permita escoges de manera
+#más óptima el p o el q relacionado a este modelo
+
+
+#Predicción
+
+#Se debe especificar un horizonte determinado de periodos(h) por delante para realizar
+#las predicciones y ajustar dicho modelo para generar las predicciones que se esperan
+
+prediccion <- forecast(modeloarima, h = 30)
+plot(prediccion)
+
+#Cabe mencionar que la predicción a partir de dicho modelo no sólo nos traerá un dato
+#sino que también nos da una banda de posibles datos debido a que el tiempo es una variable
+#clave e impredecible, por lo tanto ponerse en diversos escenarios es la mejor opción.
+
+
+
+#Econometría
+
+#Modelo Econométrico
+
+modelo <- lm(Consumo~Mes, data=mydata)
+summary(modelo)
+print(xtable(modelo),digits=4)
+
+
+
+     
