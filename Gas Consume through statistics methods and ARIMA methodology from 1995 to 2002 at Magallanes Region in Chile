@@ -101,16 +101,20 @@
 #Primer procedimiento: Importar las librerías necesarias para el análisis
 
 install.packages("tidyverse")
-install.packages("corrplot")
 install.packages("ggpubr")
 install.packages("caret")
+install.packages("ggvis",dependencies=TRUE)
+install.packages('forecast')
+install.packages('lubridate')
 
+library(forecast)
+library(lubridate)
+library(ggvis)
 library(caret)
 library(tidyverse)
 library(ggplot2)
 library(magrittr)
 library(dplyr)
-library(corrplot)
 library(ggpubr)
 library(xtable)
 library(forecast)
@@ -194,6 +198,31 @@ any(!complete.cases(mydata))
 #un valor ausente NA.
 
 #En este caso no existen valores con ""
+
+
+#Primeros análisis gráficos
+
+# Scatter plot
+#1. 
+
+mydata %>% ggvis(~Dia, ~Mes, fill = ~Consumo) %>% layer_points() #Día~Mes en función del Consumo a medida del color más claro
+#más consumo tiene referencia ese periodo
+
+#2.
+
+mydata %>% ggvis(~Dia, ~Año, fill = ~Consumo) %>% layer_points() #Día~Año en función del Consumo a medida del color más claro
+#más consumo tiene referencia ese periodo
+
+
+#3.
+
+mydata %>% ggvis(~DiaSemana, ~Feriado, fill = ~Consumo) %>% layer_points() #Día~Año en función del Consumo a medida del color más claro
+#más consumo tiene referencia ese periodo
+
+
+#Se pueden hacer combinaciones de 5 C 2 = 5! / 3!*2! = Donde 2 es el total de variables a relacionar en los ejes en función de una variable
+#Cuantitativa continua como en este caso es el consumo.
+
 
 #Distribución de variable Respuesta
 
@@ -411,7 +440,7 @@ dev.off
 #correlación consumo - día(variable determinada por el factor, en función de su
 #orden)
 
-cor.test <- cor(mydata$Consumo,mydata$DiaSemana,method="pearson")
+cor.test <- cor(mydata$Consumo,mydata$Dia,method="pearson")
 
 
 
@@ -433,7 +462,7 @@ cor.test <- cor(mydata$Consumo,mydata$DiaSemana,method="pearson")
 #Crear una nueva DF, ordenando el índice de las columnas en función de lo que queramos
 #mostrar en la dataframe a trabajar usando la librería dplyr
 
-mydata1 = unite(mydata, FechaCompleta,c(2:4),  sep = "/", remove = TRUE)
+mydata1 = unite(mydata, FechaCompleta,c(2:4),  sep = "-", remove = TRUE)
 
 #Donde FechaCompleta es la nueva variable que concatena las filas
 #2 a 4 y las separa por /, removiendo las columnas que son tomadas
@@ -458,7 +487,15 @@ mydata2
 
 #Le damos el formato fecha a los datos concatenados en los pasos anteriores
 
-mydata2$FechaCompleta = as.Date(mydata2$FechaCompleta,'%d/%m/%Y')
+mydata2$FechaCompleta = as.Date(mydata2$FechaCompleta,'%d-%m-%Y')
+
+#Ver la base de datos
+
+mydata2
+
+#Verificar el cambio de tipo de dato
+
+glimpse(mydata2)
 
 #Graficamos en función a los datos desde el consumo y usando el package ggplot
 
@@ -466,120 +503,115 @@ ggplot(mydata2,aes(FechaCompleta,Consumo))+ geom_line() + scale_x_date('Periodo'
   xlab("")
 
 
-#Si existiesen datos atípicos
+#Se necesita crear un objeto que tenga múltiples periodos. La
+#Sesión 7 y 365.25 serán usadas, la primera será para la tendencia
+#y estacionalidad semanal y la 365.25 será usada para patrones mensuales y anuales
 
-count_ts = ts(datos[, c('Consumo')])
+msts <- msts(mydata2$Consumo,seasonal.periods = c(7,365.25),start = decimal_date(as.Date("2012-04-01")))
+plot(msts, main="Daily Consumption", xlab="Year", ylab="Daily Consuption")
 
-mydata2$clean_Consumo = tsclean(count_ts)
+#Descomposición: Para analizar la estacionalidad de la data, se deben
+#extraer los componentes y para hacer esto se debe usar la función tbats
 
-#Calculo media movil para suavizar la serie en algo más estable, por lo mismo,
-#predecible
+#Tbats : Exponential Smoothing State Space Model With Box-Cox Transformation, ARMA Errors, Trend And Seasonal Components)
 
-mydata2$Consumo_ma = ma(mydata$clean_Consumo,order = 7) 
-mydata2$Consumo_ma35 = ma(mydata$clean_Consumo,order = 35)
-mydata2$Consumo_ma90 = ma(mydata$clean_Consumo,order = 90)
+#Fuente: https://www.rdocumentation.org/packages/forecast/versions/8.4/topics/tbats
 
-#Graficamos la media movil
+tbats <- tbats(msts)
+plot(tbats,main = "Multiple Season Decomposition")
 
-ggplot() +
-  geom_line(data = mydata2, aes(x = FechaCompleta , y = clean_apartamento, colour = "Counts")) +
-  geom_line(data = mydata2, aes(x = FechaCompleta, y = Consumo_ma,   colour = "Daily Moving Average"))  +
-  geom_line(data = mydata2, aes(x = FechaCompleta, y = Consumo_ma35, colour = "Weekly Moving Average"))  +
-  geom_line(data = mydata2, aes(x = FechaCompleta, y = apartamento_ma90, colour = "Monthly Moving Average"))
-  ylab('Consumo Count')
+#Suavizado exponencial el objeto msts puede acomodar una múltiple estacionalidad.
+
+sp <- predict(tbats,h=14)
+plot(sp,main="TBATS Forecast", include=14)
+
+#Llamamos la función para 14 periodos hacia adelante tomando la información
+#hacia atrás y tomando la temporalidad señalada en la linea del script
+#número 510.
+
+sp
+
+#Regresión usando arima sobre los residuos
+
+#Si hay variables dicotómicas o cualitativas ordinales,
+#éstas no son muy flexibles para errores y cambios en los patrones.
+#Lo que si se puede hacer es crear una R.L.S(Regresión lineal simple)
+#y luego analizar los residuos, ellos son los errores del modelo.
+
+
+tsw <- ts(mydata2$Consumo, start = decimal_date(as.Date("1995-10-20")), frequency = 7)
+mytslm <- tslm(tsw ~ trend + season)
+mytslm
+
+
+#El modelo por si sólo puede ser una mala predicción porque 
+#puede estar ignorando la estacionalidad mensual, para evitar esto
+#se puede usar la siguiente técnica, usando la función auto.arima
+#del package forecast, se puede obtener una predicción para 7 días, luego para 35(5 semanas) y al final para 90 días(3 meses)
+
+
+#Ajustando el modelo en función de la temporalidad #1er modelo
+
+residarima1 <- auto.arima(mytslm$residuals)
+residualsArimaForecast <- forecast(residarima1, h=7)
+residualsF <- as.numeric(residualsArimaForecast$mean)
+
+regressionForecast <- forecast(mytslm,h=7)
+regressionF <- as.numeric(regressionForecast$mean)
+
+forecastR <- regressionF+residualsF
+print(forecastR)
+
+#Revisar los resultados de este método con el según los KPI de entrenamiento, tests, para calcular su eficiencia(minimizando el error)
+
+#En este caso las series de tomarán en dos periodos en función
+#a la temporalidad señalada(semanal)
+
+#El comportamiento habitual es tomar el 70%-80% de los datos como fuente de datos
+#a entrenar y el restante 20% sirve para hacer los tests.
+
+# Para pronosticar desde datos diarios a otras temporalidades como lo son
+#las predicciones semanales o mensuales, un conjunto de pruebas grande no sería el más adecuado.
+
+#En este caso se probará el 20% de los datos en 20 particiones de 1 semana
+
+#La mejor manera de ejecutar esta tarea es aplicando un loop(bucle for)
+#Partición de los datos
+
+for (i in 1:20)#20 iteraciones para ver si realmente el modelo minimiza el error. #2do modelo
+{
+  nTest <- 7*i  
+  nTrain <- length(tsw)- nTest 
+  train <- window(tsw,start=decimal_date(as.Date("1995-10-20")),end=c(decimal_date(as.Date("1995-10-20")),nTrain))
+  test <- window(tsw, start=c(decimal_date(as.Date("1995-10-20")),nTrain+1), end=c(decimal_date(as.Date("1995-10-20")),nTrain+14))
   
-
-#Componente estacional
-
-count_ma = ts(na.omit(mydata2$Consumo_ma), frequency=30)
-decomp = stl(count_ma, s.window="periodic")
-deseasonal_Consumo <- seasadj(decomp)
-plot(decomp)
-
-#Se verifica si realmente la serie tiene o no estacionalidad, si no tiene 
-#una tendencia clara es porque tiene valores extremos o no tiene
-#normalidad la serie, si esto ocurriese habría que hacerle un ajuste
-#a partir del test de Dickey-Fuller
-
-adf.test(count_ma,alternative="stationary")
-
-#Claramente la hipótesis nula señala que la serie es no estacionaria,
-#por lo mismo el contraste(hipótesis alternativa) es que sea estacionaria
-
-#Si el p valor(nivel de significación) derivada de dicha serie temporal > 0.05
-#se concluye que en este caso, la serie no es estacionaria
-
-#Autocorrelación
-
-Acf(count_ma,main='')
-Pacf(count_ma, main='')
-
-#Diferencia para estacionalizar la serie de datos
-
-count_d1 = diff(deseasonal_apartamento, differences = 1)
-plot(count_d1)
-
-#Comprobamos nuevamente si existiese estacionalidad
-
-adf.test(count_d1, alternative = "Estacionalidad")
-
-#Si el p valor(nivel de significación) derivada de dicha serie temporal > 0.05
-#se concluye que la serie es estacionaria, porque se rechaza la h.n que señala
-#la no estacionalidad en los datos.
-
-#Los picos en los rezagos derivados de la diferenciación ayudan a determinar
-#p o q en el modelo:
-
-Acf(count_d1, main='ACF para series diferenciadas')
-Pacf(count_d1, main='PACF para series diferenciadas')
-
-
-#Ajuste del modelo
-
-auto.arima(deseasonal_Consumo,seasonal=FALSE)
-
-#Los resultados de la primera fila son los estimadores para el modelo
-#ajustado
-
-#Cuando no existen errores en la especificación del modelo u otros derivados
-#Ejemplo de la mala sintaxis, orden, entre otros, se espera no obtener autocorrelaciones
-#significativas. Para ejecutar de manera correcta el pronóstico, se debe tener en cuenta
-#la gráfica proveniente de ACF Y PACF para los residuos del modelo.
-
-modeloarima <- auto.arima(deseasonal_Consumo,seasonal=FALSE)
-modeloarima
-
-#Para graficar los residuos del modelo
-
-tsdisplay(residuals(modeloarima),lag.max=10,main='(3,1,1) Residuos del modelo')
-
-
-#Puede haber una tendencia en alguno de los retardos que permita escoges de manera
-#más óptima el p o el q relacionado a este modelo
-
-
-#Predicción
-
-#Se debe especificar un horizonte determinado de periodos(h) por delante para realizar
-#las predicciones y ajustar dicho modelo para generar las predicciones que se esperan
-
-prediccion <- forecast(modeloarima, h = 30)
-plot(prediccion)
-
-#Cabe mencionar que la predicción a partir de dicho modelo no sólo nos traerá un dato
-#sino que también nos da una banda de posibles datos debido a que el tiempo es una variable
-#clave e impredecible, por lo tanto ponerse en diversos escenarios es la mejor opción.
+  trainlm <- tslm(train ~ trend + season)
+  trainlmf <- forecast(trainlm,h=7)
+  
+  residauto <- auto.arima(trainlm$residuals)
+  residf <- forecast(residauto,h=7)
+  
+  y <- as.numeric(trainlmf$mean)
+  x <- as.numeric(residf$mean)
+  sp <- x+y
+  
+  cat("----------------------------------
+      
+      Data Partition",i,"
+      
+      Training Set includes",nTrain," time periods. Observations 1 to", nTrain, "
+      Test Set includes 7 time periods. Observations", nTrain+1, "to", nTrain+7,"
+      
+      ")
+  
+  print(accuracy(sp,test))
+  print(residauto)
+  
+  cat("
+      
+      ")
+  
+}
 
 
 
-#Econometría
-
-#Modelo Econométrico
-
-modelo <- lm(Consumo~Mes, data=mydata)
-summary(modelo)
-print(xtable(modelo),digits=4)
-
-
-
-     
